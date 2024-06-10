@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Chatroom with Gemini API</title>
+    <style>
+      #restartButton {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        color: white;
+        background: rgba(0, 0, 0, 0.8);
+        border: 1px solid #fff;
+        border-radius: 5px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      #restartButton:hover {
+        background: rgba(0, 0, 0, 1);
+        box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.5);
+        transform: scale(1.05);
+      }
+
+      body {
+        color: white;
+        font-family: "Courier New", Courier, monospace;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background: #000;
+        /* Default background in case image doesn't load */
+      }
+
+      /* #backgroundWrapper {
+        width: 80vw;
+
+        max-width: 800px;
+
+        height: 80vw;
+
+        max-height: 800px;
+
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        background-image: url("./img/title.gif");
+
+        background-size: contain;
+
+        background-repeat: no-repeat;
+        background-position: center bottom;
+      } */
+
+      #backgroundWrapper {
+        width: 100vw; /* 使用整个视口宽度 */
+        height: 100vh; /* 使用整个视口高度 */
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        background-image: url("./img/title.gif"); /* 替换为你的图片路径 */
+        background-size: cover; /* 确保图片覆盖整个容器 */
+        background-repeat: no-repeat;
+        background-position: center;
+      }
+
+      #gameContainer {
+        width: 100%;
+        /* Takes the full width of the background wrapper */
+        height: 200px;
+        /* Adjusted height to position at the bottom of the image */
+        background: rgba(0, 0, 0, 0.8);
+        /* Semi-transparent black background */
+        padding: 10px;
+        display: none;
+        box-sizing: border-box;
+        border: 1px solid #fff;
+        overflow: hidden;
+      }
+
+      #messages {
+        height: 80%;
+        overflow-y: auto;
+        margin-bottom: 10px;
+      }
+
+      .message {
+        margin: 5px 0;
+      }
+
+      .userMessage {
+        color: #0f0;
+      }
+
+      .botMessage {
+        color: #ff0;
+      }
+
+      #messageInput {
+        width: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+        background: transparent;
+        border: none;
+        border-top: 1px solid #fff;
+        color: white;
+        font-size: 16px;
+      }
+
+      #startButton,
+      #introButton {
+        padding: 15px 30px;
+        /* Increase padding for a better look */
+        font-size: 20px;
+        /* Adjust font size */
+        cursor: pointer;
+        /* Position it within the wrapper */
+        margin-bottom: 20px;
+        color: white;
+        /* Text color */
+        background: rgba(0, 0, 0, 0.8);
+        /* Same semi-transparent background as introBlock */
+        border: 1px solid #fff;
+        /* Same border as introBlock */
+        border-radius: 5px;
+        /* Rounded corners similar to introBlock */
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+        /* Subtle shadow for depth */
+        transition: all 0.3s ease;
+        /* Smooth transition for hover effects */
+      }
+
+      #startButton:hover,
+      #introButton:hover {
+        background: rgba(0, 0, 0, 1);
+        /* Darker background on hover */
+        box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.5);
+        /* Slightly larger shadow on hover */
+        transform: scale(1.05);
+        /* Slightly enlarge on hover */
+      }
+
+      #introBlock {
+        width: 80%;
+        max-width: 600px;
+        background: rgba(0, 0, 0, 0.8);
+        /* Semi-transparent background */
+        padding: 20px;
+        box-sizing: border-box;
+        border: 1px solid #fff;
+        margin-bottom: 20px;
+        /* Space between intro block and start button */
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        display: none;
+        /* Initially hidden */
+      }
+    </style>
+  </head>
+
+  <body>
+    <button id="restartButton">重新挑戰</button>
+
+    <div id="introBlock">
+      <h2>歡迎來到《心動學園-戀戰》</h2>
+      <p>
+        在這款獨特的校園冒險遊戲中，您將扮演一位剛轉入新高中的轉學生，開始一段充滿選擇與挑戰的生活。《心動學園-戀戰》同時適合女性向和男性向玩家，透過第一人稱視角讓您深入體驗角色的情感與抉擇，無論您是哪種玩家，都能在遊戲中找到屬於自己的浪漫故事。
+        遊戲設計符合現代多元性別認同理念，不強制玩家選擇主角的性別，讓每位玩家都能享受無拘無束的遊戲體驗。您可以自由選擇喜歡的角色進行攻略，探索與不同角色間的情感發展，體驗多樣的結局。
+      </p>
+      <button id="startButton">Start Game</button>
+    </div>
+    <div id="backgroundWrapper">
+      <button id="introButton">遊戲介紹</button>
+      <div id="gameContainer">
+        <div id="messages"></div>
+        <form id="messageForm">
+          <input
+            type="text"
+            id="messageInput"
+            placeholder="Type your command..."
+          />
+        </form>
+      </div>
+    </div>
+  </body>
+  <script>
+    var conversationHistory = [];
+
+    var apiKey = prompt("Please enter your API key:", "");
+    var userName = prompt("Please enter your name:", "");
+
+    if (!apiKey || !userName) {
+      alert("API key and name are required to use the chatroom.");
+      // Optionally, redirect or disable form
+    } else {
+      document
+        .getElementById("messageForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+          var inputElement = document.getElementById("messageInput");
+          var message = inputElement.value;
+
+          addToConversationHistory("user", message);
+          displayMessage(message, "user");
+          inputElement.disabled = true;
+          fetch(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" +
+              apiKey,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                contents: conversationHistory,
+                safetySettings: [
+                  {
+                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_NONE",
+                  },
+                  {
+                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    threshold: "BLOCK_NONE",
+                  },
+                ],
+                generationConfig: {
+                  stopSequences: [""],
+                  temperature: 2.0,
+                  maxOutputTokens: 2048,
+                  topP: 0.8,
+                  topK: 10,
+                },
+              }),
+            }
+          )
+            .then((response) => response.json())
+            .then((data) => {
+              var responseText = data.candidates[0].content.parts[0].text;
+              addToConversationHistory("model", responseText);
+              displayMessage(responseText, "bot");
+              inputElement.disabled = false;
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              inputElement.disabled = false;
+            });
+
+          document.getElementById("messageInput").value = "";
+        });
+    }
+
+    function addToConversationHistory(role, text) {
+      conversationHistory.push({
+        role: role,
+        parts: [
+          {
+            text: text,
+          },
+        ],
+      });
+    }
+
+    function displayMessage(message, sender) {
+      var messageElement = document.createElement("div");
+      var formatMessage = formatText(message);
+      messageElement.classList.add("message");
+      if (sender === "user") {
+        messageElement.classList.add("userMessage");
+      } else {
+        messageElement.classList.add("botMessage");
+      }
+      document.getElementById("messages").appendChild(messageElement);
+      updateSceneImage(message);
+      // Function to display the text one character at a time
+      function typeText(element, text, index) {
+        if (index < text.length) {
+          let char = text[index];
+          if (char === "<") {
+            let endIndex = text.indexOf(">", index);
+            if (endIndex !== -1) {
+              element.innerHTML += text.substring(index, endIndex + 1);
+              index = endIndex + 1;
+            }
+          } else {
+            element.innerHTML += char;
+            index++;
+          }
+          setTimeout(function () {
+            typeText(element, text, index);
+          }, 75); // Adjust typing speed by changing the delay (in milliseconds)
+        } else {
+          // Scroll to bottom after the entire message is displayed
+          document.getElementById("messages").scrollTop =
+            document.getElementById("messages").scrollHeight;
+        }
+      }
+
+      // Start typing the formatted message
+      typeText(messageElement, formatMessage, 0);
+    }
+
+    // function updateSceneImage(responseText) {
+    //   let sceneMatch = responseText.match(/場景：(.*?)\s/); // 使用正則表達式匹配場景描述
+    //   if (sceneMatch && sceneMatch[1]) {
+    //     let scene = sceneMatch[1];
+    //     console.log(scene);
+    //     // 檢查scene是否包含"宿舍"
+    //     if (scene.includes("宿舍")) {
+    //       document.getElementById("backgroundWrapper").style.backgroundImage =
+    //         "url('./img/dorm.jpeg')";
+    //     } else if (scene.includes("聚會")) {
+    //       document.getElementById("backgroundWrapper").style.backgroundImage =
+    //         "url('./img/party.jpeg')";
+    //     } else if (scene.includes("圖書館")) {
+    //       document.getElementById("backgroundWrapper").style.backgroundImage =
+    //         "url('./img/library.jpeg')";
+    //     }
+    //   }
+    // }
+
+    function updateSceneImage(responseText) {
+      let sceneMatch = responseText.match(/場景：(.*?)\s/);
+      let allTest = responseText.match(/(.*?)/);
+      if (sceneMatch && sceneMatch[1]) {
+        let scene = sceneMatch[1];
+
+        if (
+          scene.includes("校園廣場") ||
+          scene.includes("學校大門") ||
+          scene.includes("校園活動")
+        ) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/school_plaza.jpeg')";
+        } else if (scene.includes("熱舞社")) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/dance_studio.jpeg')";
+        } else if (scene.includes("吉他社")) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/guitar_room.jpeg')";
+        } else if (scene.includes("舞蹈教室")) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/dance_classroom.jpeg')";
+        } else if (scene.includes("吉他教室")) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/guitar_classroom.jpeg')";
+        } else if (
+          scene.includes("街上") ||
+          scene.includes("校園小徑A") ||
+          scene.includes("校園小徑")
+        ) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/school_walk.jpeg')";
+        } else if (
+          scene.includes("路上") ||
+          scene.includes("街邊巷弄B") ||
+          scene.includes("街邊巷弄")
+        ) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/walk.jpeg')";
+        } else if (
+          scene.includes("結局畫面A") ||
+          (responseText.includes("A") && responseText.includes("結局"))
+        ) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/ending_a.jpeg')";
+        } else if (
+          scene.includes("結局畫面B") ||
+          (responseText.includes("B") && responseText.includes("結局"))
+        ) {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/ending_b.jpeg')";
+        } else {
+          document.getElementById("backgroundWrapper").style.backgroundImage =
+            "url('./img/background.jpeg')";
+        }
+      }
+    }
+
+    function formatText(text) {
+      // Replace ** with a new line and bold tag
+      let formattedText = text.replace(
+        /\*\*(.*?)\*\*/g,
+        "<br><strong>$1</strong>"
+      );
+
+      // Replace * with a new line and bullet point
+      formattedText = formattedText.replace(/\*(.*?)\s/g, "<br>$1");
+
+      return formattedText;
+    }
+
+    document
+      .getElementById("introButton")
+      .addEventListener("click", function () {
+        document.getElementById("introBlock").style.display = "block";
+        this.style.display = "none"; // Hide the intro button
+        document.getElementById("startButton").style.display = "block"; // Show the start button
+      });
+
+    document
+      .getElementById("startButton")
+      .addEventListener("click", function () {
+        // Change background image and display settings when starting the game
+        document.getElementById("backgroundWrapper").style.backgroundImage =
+          "url('./img/background.jpeg')";
+        document.getElementById("introBlock").style.display = "none"; // Show the game container
+        document.getElementById("gameContainer").style.display = "inline";
+        document.getElementById("introButton").style.display = "none"; // Hide the start button
+
+        conversationHistory.push({
+          role: "user",
+          parts: [
+            {
+              text: `
+    腳本：
+    """
+    遊戲標題：心動學園-戀戰
+    遊戲背景
+    ${userName}是一位剛入學的轉學高中生，在社團博覽會上遇到了自己心儀的對象。遊戲通過${userName}的互動和選擇來探索表達真實感受的重要性。
+
+    主要角色：
+    ${userName}：主角，內向的高中生。
+    Amy：甜美的舞蹈社成員。
+    Bart：溫柔的吉他社社長。
+
+    遊戲腳本流程
+
+    開場：
+    （場景：校園廣場）
+    ${userName}來到了社團博覽會，去看看有哪些有趣的社團活動。
+
+    選擇A：走向熱舞社的攤位，一個小個子的甜美女孩正熱情地介紹。
+    選擇B：走向吉他社的攤位，一個戴著圓框眼鏡的男生正在彈奏吉他。
+
+
+    ------
+    聚會上的互動：
+
+    若選擇A:
+    （場景：熱舞社）
+    你走向熱舞社的攤位，甜美女孩Amy對你微笑：“你好，我是Amy，是熱舞社的教學幹部。我們社團非常有趣，你要不要加入我們？”
+    選擇A1：告訴Amy你很喜歡跳舞，願意加入他們並且擔任幹部。（選擇後進入校園活動）
+    選擇A2：表達對舞蹈的興趣，想參加看看。（選擇後進入校園活動）
+
+
+    若選擇B:
+    （場景：吉他社）
+    你走向吉他社的攤位，男生Bart對你微笑：“你好，我是Bart，是吉他社的社長。我們社團非常有趣，你要不要加入我們？”
+
+    選擇B1：告訴Bart你對吉他很感興趣，願意加入他們並且擔任幹部。（選擇後進入校園活動）
+    選擇B2：表達對吉他的興趣，想參加看看。（選擇後進入校園活動）
+    ------
+    校園活動：
+
+    選擇A：
+    （場景：舞蹈教室）
+    你和Amy一起參加了一個校園活動，開始更多地了解對方。
+
+
+    你們在舞蹈教室裡度過了許多愉快的時光，Amy教你新的舞步，你們一起排練，準備參加學校的舞蹈比賽。
+
+    選擇A1：跟他一起走回家。（選擇後進入最終抉擇）
+    選擇A2：去散散步，談論著你們的愛好和興趣。（選擇後進入最終抉擇）
+
+    選擇B：
+    （場景：吉他教室）
+    你和Bart一起參加了一個音樂活動，開始更多地了解對方。
+
+    你們在吉他教室裡度過了許多愉快的時光，Bart教你新的曲子，你們一起排練，準備參加學校的音樂會。
+
+    選擇B1：跟他一起走回家。（選擇後進入最終抉擇）
+    選擇B2：去散散步，談論著你們的愛好和興趣。（選擇後進入最終抉擇）
+
+    ------
+    最終抉擇：
+
+
+    選擇A:
+    （場景：校園小徑A）
+    你們剛剛聊著彼此的夢想和未來。
+    在離別時，她突然壁咚了上來。
+
+    選擇A1:深情的看著她的眼睛，上前親吻她。(選擇後進入勝利A結局)
+    選擇A2:輕輕的閉上眼睛，等待她的進一步。(選擇後進入失敗A結局)
+
+    選擇B:
+    （場景：街邊巷弄B）
+    你們剛剛聊著彼此的夢想和未來。
+    在離別時，他突然壁咚了上來。
+
+    選擇B1:深情的看著他的眼睛，上前親吻他。(選擇後進入勝利B結局)
+    選擇B2:輕輕的閉上眼睛，等待他的進一步。(選擇後進入失敗B結局)
+
+    ------
+    結局：
+    根據玩家的選擇，故事將有不同的結局。
+
+    選擇A:
+    勝利A結局：
+    （場景：結局畫面-A）
+    描述：你成功攻略了Amy，享受著幸福的校園生活。
+
+    失敗A結局：
+    （場景：結局畫面-A）
+    描述：未能成功Amy，但在過程中成長了很多。
+
+    中立A結局：
+    （場景：結局畫面-A）
+    描述：Amy選擇不與任何人在一起，或選擇獨立生活，但你們依然保持著友誼。
+
+    選擇B:
+    勝利A結局：
+    （場景：結局畫面-B）
+    描述：你成功攻略了Bart，享受著幸福的校園生活。
+
+    失敗B結局：
+    （場景：結局畫面-B）
+    描述：未能成功攻略Bart，但在過程中成長了很多。
+
+    中立B結局：
+    （場景：結局畫面-B）
+    描述：Bart選擇不與任何人在一起，或選擇獨立生活，但你們依然保持著友誼。
+
+    請根據腳本中的對話，根據"開場"到"聚會上的互動"到"校園活動"到"最終抉擇"到"結局"進行，開始一個文字冒險遊戲，每一次的對話，都需要呈現以下格式與資訊：
+    <場景：目前故事的背景為何>
+    <選擇>：在每一次的對話中，你都會根據腳本給我可以選擇的動作，根據我選擇的動作繼續接下來的劇情，選項編號用數字，整體劇情會圍繞腳本發展。
+
+    根據我的選擇進行故事就好，不要幫我做出選擇
+
+    `,
+            },
+          ],
+        });
+        fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" +
+            apiKey,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              contents: conversationHistory,
+              safetySettings: [
+                {
+                  category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                  threshold: "BLOCK_NONE",
+                },
+                {
+                  category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                  threshold: "BLOCK_NONE",
+                },
+              ],
+              generationConfig: {
+                stopSequences: [""],
+                temperature: 2.0,
+                maxOutputTokens: 2048,
+                topP: 0.8,
+                topK: 10,
+              },
+            }),
+          }
+        )
+          .then((response) => response.json())
+          .then((data) => {
+            console.log(conversationHistory);
+            var responseText = data.candidates[0].content.parts[0].text;
+            addToConversationHistory("model", responseText);
+            displayMessage(responseText, "bot");
+          })
+          .catch((error) => console.error("Error:", error));
+      });
+
+    document
+      .getElementById("restartButton")
+      .addEventListener("click", function () {
+        location.reload();
+      });
+  </script>
+</html>
